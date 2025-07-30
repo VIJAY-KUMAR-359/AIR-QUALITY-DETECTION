@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Air Quality Indicator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map {
+            height: 400px;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .pollution-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% {
+                opacity: 0.8;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.8;
+            }
+        }
+        
+        .legend {
+            padding: 10px;
+            line-height: 18px;
+            color: #555;
+            background: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body class="bg-dark-50 min-h-screen" style="background-image: url(vk_4k_enhanced.jpg); background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
+  margin: 0;">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-10 text-center" style="background-color: rgb(209, 245, 227); border-radius: 20px; box-shadow: 1px 1px 40px 1px black; ">
+            <h1 class="text-4xl font-bold text-white-800 mb-2" style="color: rgb(18, 18, 19);">Global Air Quality Indicator</h1>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto" style="color: rgba(109, 97, 97, 0.92);">
+                Real-time air quality monitoring for cities worldwide with detailed pollution breakdown and interactive mapping
+            </p>
+        </header>
+
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+            <div class="p-6" style="background-color: #c8e6f9;">
+                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                    <input type="text" id="cityInput" placeholder="Enter city name (e.g., London, Tokyo)" class="flex-grow px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button id="searchBtn" class="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                        Check Air Quality
+                    </button>
+                </div>
+
+                <div id="error" class="hidden p-4 mb-4 text-red-700 bg-red-100 rounded-lg"></div>
+
+                <div id="results" class="hidden" style="background-color: #c8e6f9;">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <div class="mb-4">
+                                <h2 class="text-2xl font-semibold text-gray-800 mb-1" id="cityName"></h2>
+                                <p class="text-gray-600" id="locationDetails"></p>
+                            </div>
+
+                            <div class="bg-blue-50 p-4 rounded-lg mb-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-medium text-gray-700">Air Quality Index (AQI)</span>
+                                    <span id="aqiValue" class="font-bold text-xl"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div id="aqiBar" class="h-2.5 rounded-full"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-sm text-gray-600">
+                                    <span>0 (Good)</span>
+                                    <span>300 (Hazardous)</span>
+                                </div>
+                                <div id="aqiDescription" class="mt-2 text-sm"></div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">PM2.5</span>
+                                        <span id="pm25" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="pm25Bar" class="h-1.5 rounded-full bg-red-500"></div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">PM10</span>
+                                        <span id="pm10" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="pm10Bar" class="h-1.5 rounded-full bg-orange-500"></div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">O₃</span>
+                                        <span id="o3" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="o3Bar" class="h-1.5 rounded-full bg-yellow-500"></div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">NO₂</span>
+                                        <span id="no2" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="no2Bar" class="h-1.5 rounded-full bg-purple-500"></div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">SO₂</span>
+                                        <span id="so2" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="so2Bar" class="h-1.5 rounded-full bg-green-500"></div>
+                                    </div>
+                                </div>
+                                <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-700">CO</span>
+                                        <span id="co" class="font-medium"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                                        <div id="coBar" class="h-1.5 rounded-full bg-blue-500"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div id="map"></div>
+                            <div class="mt-4 flex justify-center">
+                                <div class="legend p-3 bg-white rounded-lg shadow-sm">
+                                    <p class="font-medium text-center mb-2">Air Quality Index Levels</p>
+                                    <div class="flex flex-col space-y-1">
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-green-500 mr-2"></span>
+                                            <span>0-50: Good</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-yellow-500 mr-2"></span>
+                                            <span>51-100: Moderate</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-orange-500 mr-2"></span>
+                                            <span>101-150: Unhealthy (Sensitive)</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-red-500 mr-2"></span>
+                                            <span>151-200: Unhealthy</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-purple-500 mr-2"></span>
+                                            <span>201-300: Very Unhealthy</span>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <span class="w-4 h-4 rounded-full bg-brown-600 mr-2"></span>
+                                            <span>300+: Hazardous</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-800 mb-3">Health Recommendations</h3>
+                        <div id="recommendations" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Health recommendations will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+    </div>
+
+    <script>
+        // Backend Simulation using OpenWeatherMap API
+        const getAirQualityData = async(city) => {
+            // In a real implementation, you would call your own backend here
+            // This is simulating what your backend would return from OpenWeatherMap API
+            const apiKey = 'YOUR_OPENWEATHERMAP_API_KEY'; // Replace with actual API key in production
+            try {
+                // Simulating API call delay
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                // For demo purposes, we'll return mock data
+                // Real implementation would look like this:
+                // const response = await fetch(`http://api.openweathermap.org/data/2.5/air_pollution?q=${city}&appid=${apiKey}`);
+                // const data = await response.json();
+
+                // Mock response structure matching OpenWeatherMap API
+                const mockResponses = {
+                    "london": {
+                        coord: {
+                            lat: 51.5074,
+                            lon: -0.1278
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: 2
+                            },
+                            components: {
+                                co: 230.32,
+                                no: 0.18,
+                                no2: 12.14,
+                                o3: 68.66,
+                                so2: 4.72,
+                                pm2_5: 8.82,
+                                pm10: 12.54,
+                                nh3: 0.96
+                            }
+                        }]
+                    },
+                    "paris": {
+                        coord: {
+                            lat: 48.8566,
+                            lon: 2.3522
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: 3
+                            },
+                            components: {
+                                co: 310.45,
+                                no: 0.25,
+                                no2: 24.47,
+                                o3: 42.33,
+                                so2: 8.93,
+                                pm2_5: 15.67,
+                                pm10: 21.32,
+                                nh3: 1.24
+                            }
+                        }]
+                    },
+                    "new york": {
+                        coord: {
+                            lat: 40.7128,
+                            lon: -74.0060
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: 4
+                            },
+                            components: {
+                                co: 420.89,
+                                no: 0.87,
+                                no2: 38.19,
+                                o3: 58.77,
+                                so2: 12.64,
+                                pm2_5: 22.42,
+                                pm10: 35.68,
+                                nh3: 2.15
+                            }
+                        }]
+                    },
+                    "tokyo": {
+                        coord: {
+                            lat: 35.6762,
+                            lon: 139.6503
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: 1
+                            },
+                            components: {
+                                co: 180.45,
+                                no: 0.12,
+                                no2: 8.76,
+                                o3: 72.89,
+                                so2: 3.25,
+                                pm2_5: 7.45,
+                                pm10: 10.32,
+                                nh3: 0.68
+                            }
+                        }]
+                    },
+                    "delhi": {
+                        coord: {
+                            lat: 28.7041,
+                            lon: 77.1025
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: 5
+                            },
+                            components: {
+                                co: 510.76,
+                                no: 1.32,
+                                no2: 45.21,
+                                o3: 35.67,
+                                so2: 19.87,
+                                pm2_5: 45.32,
+                                pm10: 68.94,
+                                nh3: 3.45
+                            }
+                        }]
+                    }
+                };
+
+                const normalizedCity = city.toLowerCase();
+                if (mockResponses[normalizedCity]) {
+                    return mockResponses[normalizedCity];
+                } else {
+                    // Default mock data for other cities
+                    return {
+                        coord: {
+                            lat: (Math.random() * 180) - 90,
+                            lon: (Math.random() * 360) - 180
+                        },
+                        list: [{
+                            dt: Math.floor(Date.now() / 1000),
+                            main: {
+                                aqi: [1, 2, 3, 4, 5][Math.floor(Math.random() * 5)]
+                            },
+                            components: {
+                                co: (Math.random() * 500).toFixed(2),
+                                no: (Math.random() * 2).toFixed(2),
+                                no2: (Math.random() * 50).toFixed(2),
+                                o3: (Math.random() * 100).toFixed(2),
+                                so2: (Math.random() * 20).toFixed(2),
+                                pm2_5: (Math.random() * 50).toFixed(2),
+                                pm10: (Math.random() * 70).toFixed(2),
+                                nh3: (Math.random() * 4).toFixed(2)
+                            }
+                        }]
+                    };
+                }
+            } catch (error) {
+                console.error("Error fetching air quality data:", error);
+                throw error;
+            }
+        };
+
+        // UI Interaction Code
+        let map;
+        let marker;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize map with world view
+            map = L.map('map').setView([20, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            document.getElementById('searchBtn').addEventListener('click', searchAirQuality);
+            document.getElementById('cityInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchAirQuality();
+                }
+            });
+        });
+
+        async function searchAirQuality() {
+            const city = document.getElementById('cityInput').value.trim();
+            if (!city) {
+                showError('Please enter a city name');
+                return;
+            }
+
+            try {
+                // Show loading state
+                document.getElementById('searchBtn').disabled = true;
+                document.getElementById('searchBtn').innerHTML = 'Loading...';
+                document.getElementById('error').classList.add('hidden');
+
+                const data = await getAirQualityData(city);
+
+                if (!data || !data.list || data.list.length === 0) {
+                    throw new Error('No air quality data available for this location');
+                }
+
+                displayResults(city, data);
+            } catch (error) {
+                showError(error.message || 'Failed to fetch air quality data');
+            } finally {
+                document.getElementById('searchBtn').disabled = false;
+                document.getElementById('searchBtn').innerHTML = 'Check Air Quality';
+            }
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.classList.remove('hidden');
+            errorElement.textContent = message;
+        }
+
+        function displayResults(city, data) {
+            const aqiData = data.list[0];
+            const components = aqiData.components;
+            const aqi = aqiData.main.aqi;
+            const coordinates = data.coord;
+
+            // Update city information
+            document.getElementById('cityName').textContent = city.charAt(0).toUpperCase() + city.slice(1);
+            document.getElementById('locationDetails').textContent = `Lat: ${coordinates.lat.toFixed(4)}, Lon: ${coordinates.lon.toFixed(4)}`;
+
+            // Calculate AQI percentage (scaled 0-300)
+            const aqiPercentage = Math.min(Math.round((aqi / 5) * 100), 100);
+
+            // Update AQI
+            const aqiValueElement = document.getElementById('aqiValue');
+            aqiValueElement.textContent = getAqiLevel(aqi).name;
+            aqiValueElement.className = `font-bold text-xl ${getAqiLevel(aqi).textColor}`;
+
+            const aqiBar = document.getElementById('aqiBar');
+            aqiBar.className = `h-2.5 rounded-full ${getAqiLevel(aqi).bgColor} pollution-bar`;
+            aqiBar.style.width = `${aqiPercentage}%`;
+
+            document.getElementById('aqiDescription').textContent = getAqiLevel(aqi).description;
+            document.getElementById('aqiDescription').className = `mt-2 text-sm ${getAqiLevel(aqi).textColor}`;
+
+            // Update pollutant values
+            updatePollutant('pm25', components.pm2_5, 50);
+            updatePollutant('pm10', components.pm10, 100);
+            updatePollutant('o3', components.o3, 100);
+            updatePollutant('no2', components.no2, 50);
+            updatePollutant('so2', components.so2, 50);
+            updatePollutant('co', components.co / 1000, 10); // Convert to mg/m³
+
+            // Update map
+            updateMap(city, coordinates, aqi);
+
+            // Update health recommendations
+            updateHealthRecommendations(aqi);
+
+            // Show results
+            document.getElementById('results').classList.remove('hidden');
+        }
+
+        function updatePollutant(id, value, maxValue) {
+            const element = document.getElementById(id);
+            const barElement = document.getElementById(`${id}Bar`);
+
+            // Different units for CO (mg/m³) vs others (µg/m³)
+            const unit = id === 'co' ? ' mg/m³' : ' µg/m³';
+            element.textContent = `${parseFloat(value).toFixed(2)}${unit}`;
+
+            // Calculate percentage (capped at 100%)
+            const percentage = Math.min((value / maxValue) * 100, 100);
+            barElement.style.width = `${percentage}%`;
+        }
+
+        function updateMap(city, coordinates, aqi) {
+            // Clear existing marker
+            if (marker) {
+                map.removeLayer(marker);
+            }
+
+            // Update map view
+            map.setView([coordinates.lat, coordinates.lon], 12);
+
+            // Add new marker with AQI color
+            const aqiLevel = getAqiLevel(aqi);
+            const markerIcon = L.divIcon({
+                className: `aqi-marker ${aqiLevel.markerColor} pulse`,
+                iconSize: [30, 30],
+                popupAnchor: [0, -15],
+                html: `<div class="marker-inner">${aqi}</div>`
+            });
+
+            marker = L.marker([coordinates.lat, coordinates.lon], {
+                icon: markerIcon
+            }).addTo(map);
+
+            marker.bindPopup(`<b>${city.charAt(0).toUpperCase() + city.slice(1)}</b><br>AQI: ${aqiLevel.name}`);
+        }
+
+        function updateHealthRecommendations(aqi) {
+            const recommendationsElement = document.getElementById('recommendations');
+
+            // Clear existing recommendations
+            recommendationsElement.innerHTML = '';
+
+            // Get recommendations based on AQI level
+            const level = getAqiLevel(aqi);
+
+            // Add general recommendations
+            const generalHtml = `
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-medium text-gray-800 mb-2">General Advice</h4>
+                    <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+                        ${level.recommendations.map(r => `<li>${r}</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            // Add sensitive groups recommendations if AQI > 100
+            const sensitiveHtml = aqi > 2 ? `
+                <div class="bg-white p-4 rounded-lg border border-gray-200">
+                    <h4 class="font-medium text-gray-800 mb-2">Sensitive Groups</h4>
+                    <p class="text-sm text-gray-700 mb-2">Children, elderly, and people with respiratory or heart conditions should:</p>
+                    <ul class="list-disc list-inside text-sm text-gray-700 space-y-1">
+                        ${level.sensitiveRecommendations ? level.sensitiveRecommendations.map(r => `<li>${r}</li>`).join('') : ''}
+                    </ul>
+                </div>
+            ` : '';
+            
+            recommendationsElement.innerHTML = generalHtml + sensitiveHtml;
+        }
+
+        function getAqiLevel(aqi) {
+            // AQI levels based on US EPA standard
+            const levels = {
+                1: {
+                    name: "Good",
+                    description: "Air quality is satisfactory, and air pollution poses little or no risk.",
+                    bgColor: "bg-green-500",
+                    textColor: "text-green-600",
+                    markerColor: "bg-green-500 border-green-700",
+                    recommendations: [
+                        "Enjoy outdoor activities",
+                        "Open windows to bring fresh air indoors",
+                        "Great day for gardening or exercising outside"
+                    ]
+                },
+                2: {
+                    name: "Moderate",
+                    description: "Air quality is acceptable. There may be a risk for some people who are unusually sensitive to air pollution.",
+                    bgColor: "bg-yellow-500",
+                    textColor: "text-yellow-600",
+                    markerColor: "bg-yellow-500 border-yellow-700",
+                    recommendations: [
+                        "Consider reducing prolonged or heavy outdoor exertion if you're unusually sensitive",
+                        "Monitor for symptoms like coughing or shortness of breath",
+                        "Those with asthma should keep medication available"
+                    ],
+                    sensitiveRecommendations: [
+                        "Consider reducing prolonged or heavy outdoor exertion",
+                        "Take more breaks during outdoor activities",
+                        "Watch for symptoms such as coughing or shortness of breath"
+                    ]
+                },
+                3: {
+                    name: "Unhealthy for Sensitive Groups",
+                    description: "Members of sensitive groups may experience health effects. The general public is less likely to be affected.",
+                    bgColor: "bg-orange-500",
+                    textColor: "text-orange-600",
+                    markerColor: "bg-orange-500 border-orange-700",
+                    recommendations: [
+                        "Reduce prolonged or heavy outdoor exertion",
+                        "Take more breaks during outdoor activities",
+                        "Watch for symptoms such as coughing or shortness of breath"
+                    ],
+                    sensitiveRecommendations: [
+                        "Limit prolonged outdoor exertion",
+                        "Move activities indoors if symptoms occur",
+                        "People with asthma should use inhaler as needed"
+                    ]
+                },
+                4: {
+                    name: "Unhealthy",
+                    description: "Some members of the general public may experience health effects; members of sensitive groups may experience more serious health effects.",
+                    bgColor: "bg-red-500",
+                    textColor: "text-red-600",
+                    markerColor: "bg-red-500 border-red-700",
+                    recommendations: [
+                        "Avoid prolonged or heavy outdoor exertion",
+                        "Consider rescheduling outdoor activities",
+                        "People with asthma should have inhaler readily available"
+                    ],
+                    sensitiveRecommendations: [
+                        "Avoid prolonged or heavy outdoor exertion",
+                        "Move all activities indoors",
+                        "People with heart or lung disease should limit physical activity"
+                    ]
+                },
+                5: {
+                    name: "Very Unhealthy",
+                    description: "Health alert: The risk of health effects is increased for everyone.",
+                    bgColor: "bg-purple-500",
+                    textColor: "text-purple-600",
+                    markerColor: "bg-purple-500 border-purple-700",
+                    recommendations: [
+                        "Avoid all outdoor exertion",
+                        "Stay indoors as much as possible",
+                        "Use an air purifier if available",
+                        "Keep windows and doors closed"
+                    ],
+                    sensitiveRecommendations: [
+                        "Stay indoors and keep activity levels low",
+                        "Follow advice for specific health conditions",
+                        "Seek medical advice if symptoms worsen"
+                    ]
+                }
+            };
+            
+            return levels[aqi] || levels[1];
+        }
+    </script>
+</body>
+
+</html>
