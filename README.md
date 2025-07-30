@@ -1,1 +1,1 @@
-# AIR-QUALITY-DETECTION
+A web-based application to monitor real-time air quality across global cities. Users can search any city to view its Air Quality Index (AQI), pollutant levels (PM2.5, PM10, NO₂, O₃, CO, SO₂), and health recommendations. The interface features an interactive Leaflet.js map with AQI-based color markers and a smooth, responsive design using TailwindCSS. A custom 4K skyline image highlights the impact of air pollution visually.# AIR-QUALITY-DETECTION
